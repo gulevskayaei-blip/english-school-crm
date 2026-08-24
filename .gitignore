@@ -1,14 +1,71 @@
+```
+# Dependencies
+node_modules/
 venv/
-env/
+.venv/
 __pycache__/
-*.py[cod]
+.mypy_cache/
+.pytest_cache/
+target/
+.gradle/
+
+# Compiled files
 *.pyc
-db.sqlite3
-media/
-*.log
-*.tar.gz
-*.bak
-*.save
+*.class
+*.o
+*.exe
+*.dll
+*.so
+*.a
+*.obj
+*.out
+
+# Build artifacts
+dist/
+build/
+coverage/
+htmlcov/
+
+# Environment
 .env
-school-frontend/node_modules/
-school-frontend/dist/
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System files
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Logs
+*.log
+
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```
