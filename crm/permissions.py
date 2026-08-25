@@ -64,3 +64,31 @@ class IsAdminOrStudent(permissions.BasePermission):
         if not request.user.is_authenticated:
             return False
         return request.user.role == 'admin' or request.user.role == 'student'
+
+
+class IsTeacherOrAdmin(permissions.BasePermission):
+    """Разрешение только если user.role == 'teacher' или 'admin'"""
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        return request.user.role == 'teacher' or request.user.role == 'admin'
+    
+    def has_object_permission(self, request, view, obj):
+        if not request.user.is_authenticated:
+            return False
+        return request.user.role == 'teacher' or request.user.role == 'admin'
+
+
+class IsHomeworkOwner(permissions.BasePermission):
+    """Разрешение только если homework.student == request.user"""
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        # Для list/create проверяем на уровне queryset/perform_create
+        return True
+    
+    def has_object_permission(self, request, view, obj):
+        if not request.user.is_authenticated:
+            return False
+        # Проверяем, что текущий пользователь - это студент, которому принадлежит ДЗ
+        return obj.student == request.user
