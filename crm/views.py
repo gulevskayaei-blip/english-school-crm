@@ -23,7 +23,7 @@ from .serializers import (
     StudentSerializer, CourseSerializer, LessonSerializer,
     PaymentSerializer, ExpenseSerializer, AttendanceSerializer, HomeworkSerializer
 )
-from .permissions import IsAdmin
+from .permissions import IsAdmin, IsTeacherOrAdmin, IsHomeworkOwner
 
 # ==================== АВТОРИЗАЦИЯ ====================
 
@@ -1054,6 +1054,16 @@ class HomeworkViewSet(viewsets.ModelViewSet):
     serializer_class = HomeworkSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_permissions(self):
+        """Разные права для разных действий"""
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            # Создавать/редактировать/удалять могут только учителя и админы
+            permission_classes = [IsAuthenticated, IsTeacherOrAdmin]
+        else:
+            # Читать могут все авторизованные (фильтрация в get_queryset)
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+
     def get_queryset(self):
         user = self.request.user
         role = user.role if hasattr(user, 'role') else 'admin'
@@ -1061,20 +1071,35 @@ class HomeworkViewSet(viewsets.ModelViewSet):
             return Homework.objects.all()
         elif role == 'teacher':
             teacher = Teacher.objects.get(profile__user=user)
+            # Учитель видит только ДЗ, которые он создал для своих учеников
             return Homework.objects.filter(teacher=teacher)
         elif role == 'student':
             student = Student.objects.get(profile__user=user)
+            # Студент видит только свои ДЗ
             return Homework.objects.filter(student=student)
         return Homework.objects.none()
 
     def perform_create(self, serializer):
         user = self.request.user
         role = user.role if hasattr(user, 'role') else 'admin'
+        
         if role == 'teacher':
             teacher = Teacher.objects.get(profile__user=user)
+            student = serializer.validated_data.get('student')
+            # Проверка: учитель может создавать ДЗ только для своих учеников
+            # Студент должен быть связан с этим учителем через Course
+            courses_taught_by_teacher = Course.objects.filter(teacher=teacher)
+            is_own_student = any(student in course.students.all() for course in courses_taught_by_teacher)
+            if not is_own_student:
+                raise DRFValidationError("Вы можете создавать домашние задания только для своих учеников.")
             homework = serializer.save(teacher=teacher)
-        else:
+        elif role == 'admin':
+            # Админ может создавать ДЗ для любого студента
             homework = serializer.save()
+        else:
+            # Студенты не могут создавать ДЗ через этот endpoint
+            raise PermissionDenied("Студенты не могут создавать домашние задания.")
+        
         # Синхронизация с полями Lesson для отображения на фронтенде ученика
         lesson = homework.lesson
         lesson.homework = f"{homework.title}\n\n{homework.description or ''}".strip()
@@ -1084,6 +1109,19 @@ class HomeworkViewSet(viewsets.ModelViewSet):
         lesson.save()
 
     def perform_update(self, serializer):
+        user = self.request.user
+        role = user.role if hasattr(user, 'role') else 'admin'
+        homework = self.get_object()
+        
+        # Проверка прав на обновление
+        if role == 'teacher':
+            teacher = Teacher.objects.get(profile__user=user)
+            if homework.teacher != teacher:
+                raise PermissionDenied("Вы можете редактировать только свои домашние задания.")
+        elif role == 'student':
+            # Студенты не могут редактировать ДЗ через этот endpoint
+            raise PermissionDenied("Студенты не могут редактировать домашние задания.")
+        
         homework = serializer.save()
         # Синхронизация при редактировании
         lesson = homework.lesson
